@@ -1,18 +1,15 @@
 const express = require('express');
 const path = require('path');
 const app = express();
-const port = process.env.PORT || 10000;
+const PORT = process.env.PORT || 10000;
 
-// Route xác minh Zalo
-app.get('/zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html'));
-});
+// Cho phép truy cập file tĩnh (bao gồm file xác minh HTML)
+app.use(express.static(path.join(__dirname)));
 
-// Route mặc định
 app.get('/', (req, res) => {
-  res.send('Webhook is running!');
+  res.send('Webhook đang chạy...');
 });
 
-app.listen(port, () => {
-  console.log(`Webhook chạy trên cổng ${port}`);
+app.listen(PORT, () => {
+  console.log(`Webhook chạy trên cổng ${PORT}`);
 });
