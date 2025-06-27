@@ -2,7 +2,7 @@ const express = require('express');
 const path = require('path');
 const app = express();
 
-// 👉 Phục vụ các file tĩnh ở thư mục gốc, ví dụ file xác thực .html
+// ✅ Phục vụ các file tĩnh (như file HTML xác thực) từ thư mục gốc
 app.use(express.static(path.join(__dirname)));
 
 app.use(express.json());
@@ -18,7 +18,7 @@ app.post('/webhook', (req, res) => {
   res.status(200).send('OK');
 });
 
-// Route test để kiểm tra Redirect thành công từ Zalo
+// Test redirect
 app.get('/blank.html', (req, res) => {
   res.status(200).send('OK - Redirect thành công từ Zalo');
 });
