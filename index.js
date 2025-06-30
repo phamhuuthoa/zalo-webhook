@@ -44,6 +44,10 @@ app.get('/callback', async (req, res) => {
     res.send('❌ Lỗi khi gọi API lấy token. Vui lòng kiểm tra lại APP_ID, APP_SECRET hoặc quyền truy cập.');
   }
 });
+const path = require('path');
+app.get('/zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html', (req, res) => {
+  res.sendFile(path.join(__dirname, 'zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html'));
+});
 
 app.listen(port, () => {
   console.log(`🚀 App chạy tại http://localhost:${port}`);
