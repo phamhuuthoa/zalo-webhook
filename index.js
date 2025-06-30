@@ -1,29 +1,51 @@
 const express = require('express');
-const path = require('path');
+const axios = require('axios');
 const app = express();
+const port = process.env.PORT || 3000;
 
-// ✅ Phục vụ các file tĩnh (như file HTML xác thực) từ thư mục gốc
-app.use(express.static(path.join(__dirname)));
+// ✅ Lấy App ID và Secret từ biến môi trường
+const APP_ID = process.env.APP_ID;
+const APP_SECRET = process.env.APP_SECRET;
 
-app.use(express.json());
+// ⚠️ Đừng thay đổi redirect URI này trừ khi bạn đổi đường dẫn Render
+const REDIRECT_URI = 'https://zalo-webhook-xwqv.onrender.com/callback';
 
-// Nhận dữ liệu từ Zalo webhook
-app.post('/', (req, res) => {
-  console.log('POST /:', req.body);
-  res.status(200).send('OK');
+// Trang chính
+app.get('/', (req, res) => {
+  res.send('Zalo Webhook đang hoạt động. Truy cập /auth để lấy token.');
 });
 
-app.post('/webhook', (req, res) => {
-  console.log('POST /webhook:', req.body);
-  res.status(200).send('OK');
+// Bắt đầu xác thực OAuth
+app.get('/auth', (req, res) => {
+  const authUrl = `https://oauth.zalo.me/auth?app_id=${APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=abc&scope=oa.send.update`;
+  res.redirect(authUrl);
 });
 
-// Test redirect
-app.get('/blank.html', (req, res) => {
-  res.status(200).send('OK - Redirect thành công từ Zalo');
+// Nhận mã code từ Zalo và lấy access_token + refresh_token
+app.get('/callback', async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.send('❌ Không nhận được mã xác thực (code) từ Zalo');
+
+  try {
+    const tokenRes = await axios.post(`https://oauth.zalo.me/v4/oa/access_token`, {
+      code: code,
+      app_id: APP_ID,
+      app_secret: APP_SECRET,
+      grant_type: 'authorization_code',
+      redirect_uri: REDIRECT_URI,
+    });
+
+    res.send(`
+      <h2>✅ Token nhận được:</h2>
+      <pre>${JSON.stringify(tokenRes.data, null, 2)}</pre>
+      <p>Bạn hãy copy <code>access_token</code> và <code>refresh_token</code> để dùng trong Google Sheets hoặc gửi tin nhắn.</p>
+    `);
+  } catch (err) {
+    console.error(err.response?.data || err);
+    res.send('❌ Lỗi khi gọi API lấy token. Vui lòng kiểm tra lại APP_ID, APP_SECRET hoặc quyền truy cập.');
+  }
 });
 
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => {
-  console.log(`Webhook đang chạy trên cổng ${PORT}`);
+app.listen(port, () => {
+  console.log(`🚀 App chạy tại http://localhost:${port}`);
 });
