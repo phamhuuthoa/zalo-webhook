@@ -8,8 +8,7 @@ const APP_ID = process.env.APP_ID;
 const APP_SECRET = process.env.APP_SECRET;
 
 // ⚠️ Đừng thay đổi redirect URI này trừ khi bạn đổi đường dẫn Render
-const REDIRECT_URI = 'https://zalo-webhook-xwqv.onrender.com/callback';
-
+const REDIRECT_URI = 'https://zalo-webhook-1.onrender.com/callback';
 // Trang chính
 app.get('/', (req, res) => {
   res.send('Zalo Webhook đang hoạt động. Truy cập /auth để lấy token.');
