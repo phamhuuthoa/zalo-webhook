@@ -1,32 +1,40 @@
 const express = require('express');
 const axios = require('axios');
+const path = require('path');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// ✅ Lấy App ID và Secret từ biến môi trường
 const APP_ID = process.env.APP_ID;
 const APP_SECRET = process.env.APP_SECRET;
-
-// ⚠️ Đừng thay đổi redirect URI này trừ khi bạn đổi đường dẫn Render
 const REDIRECT_URI = 'https://zalo-webhook-1.onrender.com/callback';
-// Trang chính
+
+// Middleware parse JSON cho Webhook
+app.use(express.json());
+
+/**
+ * Trang chính
+ */
 app.get('/', (req, res) => {
-  res.send('Zalo Webhook đang hoạt động. Truy cập /auth để lấy token.');
+  res.send('✅ Zalo Webhook đang hoạt động. Truy cập /auth để lấy token.');
 });
 
-// Bắt đầu xác thực OAuth
+/**
+ * Bắt đầu xác thực OAuth
+ */
 app.get('/auth', (req, res) => {
   const authUrl = `https://oauth.zalo.me/auth?app_id=${APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=abc&scope=oa.send.update`;
   res.redirect(authUrl);
 });
 
-// Nhận mã code từ Zalo và lấy access_token + refresh_token
+/**
+ * Nhận mã code và lấy access_token + refresh_token
+ */
 app.get('/callback', async (req, res) => {
   const { code } = req.query;
   if (!code) return res.send('❌ Không nhận được mã xác thực (code) từ Zalo');
 
   try {
-    const tokenRes = await axios.post(`https://oauth.zalo.me/v4/oa/access_token`, {
+    const tokenRes = await axios.post('https://oauth.zalo.me/v4/oa/access_token', {
       code: code,
       app_id: APP_ID,
       app_secret: APP_SECRET,
@@ -44,11 +52,25 @@ app.get('/callback', async (req, res) => {
     res.send('❌ Lỗi khi gọi API lấy token. Vui lòng kiểm tra lại APP_ID, APP_SECRET hoặc quyền truy cập.');
   }
 });
-const path = require('path');
+
+/**
+ * File xác minh domain Zalo
+ */
 app.get('/zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html'));
 });
 
+/**
+ * Webhook nhận sự kiện từ Zalo OA
+ */
+app.post('/webhook', (req, res) => {
+  console.log('📩 Nhận sự kiện từ Zalo OA:', JSON.stringify(req.body, null, 2));
+  res.status(200).send('OK');
+});
+
+/**
+ * Khởi động server
+ */
 app.listen(port, () => {
   console.log(`🚀 App chạy tại http://localhost:${port}`);
 });
