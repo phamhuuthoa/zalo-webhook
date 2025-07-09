@@ -1,76 +1,81 @@
 const express = require('express');
+const bodyParser = require('body-parser');
 const axios = require('axios');
-const path = require('path');
+const { google } = require('googleapis');
 const app = express();
 const port = process.env.PORT || 3000;
 
-const APP_ID = process.env.APP_ID;
-const APP_SECRET = process.env.APP_SECRET;
-const REDIRECT_URI = 'https://zalo-webhook-1.onrender.com/callback';
+app.use(bodyParser.json());
 
-// Middleware parse JSON cho Webhook
-app.use(express.json());
+// File credentials JSON của dịch vụ Google (tải từ Google Cloud)
+const CREDENTIALS = require('./credentials.json');
 
-/**
- * Trang chính
- */
+const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
+
+const auth = new google.auth.JWT(
+  CREDENTIALS.client_email,
+  null,
+  CREDENTIALS.private_key,
+  SCOPES
+);
+
+const sheets = google.sheets({ version: 'v4', auth });
+
+// ID file Google Sheet và tên sheet
+const SPREADSHEET_ID = '1uBIrbIk_mF3bTKyPqy3VVqyJc8_zMnbDzQZLtU9qwk4';
+const SHEET_NAME = 'ZaloUsers';
+
 app.get('/', (req, res) => {
-  res.send('✅ Zalo Webhook đang hoạt động. Truy cập /auth để lấy token.');
+  res.send('Zalo Webhook đang hoạt động!');
 });
 
-/**
- * Bắt đầu xác thực OAuth
- */
-app.get('/auth', (req, res) => {
-  const authUrl = `https://oauth.zalo.me/auth?app_id=${APP_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&state=abc&scope=oa.send.update`;
-  res.redirect(authUrl);
-});
-
-/**
- * Nhận mã code và lấy access_token + refresh_token
- */
-app.get('/callback', async (req, res) => {
-  const { code } = req.query;
-  if (!code) return res.send('❌ Không nhận được mã xác thực (code) từ Zalo');
+app.get('/zalo-callback', async (req, res) => {
+  const { code, state } = req.query;
 
   try {
-    const tokenRes = await axios.post('https://oauth.zalo.me/v4/oa/access_token', {
-      code: code,
-      app_id: APP_ID,
-      app_secret: APP_SECRET,
-      grant_type: 'authorization_code',
-      redirect_uri: REDIRECT_URI,
+    const app_id = '1038593225884871871';
+    const app_secret = 'XYKVv18XaEntT89k3A83'; // ← Thay bằng App Secret thật
+
+    // Lấy access token từ Zalo
+    const tokenRes = await axios.post(
+      'https://oauth.zalo.me/v4/access_token',
+      {
+        code,
+        app_id,
+        app_secret,
+        grant_type: 'authorization_code'
+      }
+    );
+
+    const { access_token } = tokenRes.data;
+
+    // Lấy thông tin người dùng
+    const userInfoRes = await axios.get('https://graph.zalo.me/v2.0/me?fields=id,name', {
+      headers: {
+        Authorization: `Bearer ${access_token}`
+      }
     });
 
-    res.send(`
-      <h2>✅ Token nhận được:</h2>
-      <pre>${JSON.stringify(tokenRes.data, null, 2)}</pre>
-      <p>Bạn hãy copy <code>access_token</code> và <code>refresh_token</code> để dùng trong Google Sheets hoặc gửi tin nhắn.</p>
-    `);
-  } catch (err) {
-    console.error(err.response?.data || err);
-    res.send('❌ Lỗi khi gọi API lấy token. Vui lòng kiểm tra lại APP_ID, APP_SECRET hoặc quyền truy cập.');
+    const zalo_id = userInfoRes.data.id;
+    const name = userInfoRes.data.name || '';
+
+    // Ghi dữ liệu vào Google Sheet
+    await sheets.spreadsheets.values.append({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEET_NAME}!A1`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: {
+        values: [[new Date().toISOString(), zalo_id, name]]
+      }
+    });
+
+    res.send('Lấy ID Zalo thành công. Bạn có thể đóng tab này!');
+  } catch (error) {
+    console.error('Lỗi callback:', error.response?.data || error.message);
+    res.status(500).send('Có lỗi xảy ra khi xử lý callback.');
   }
 });
 
-/**
- * File xác minh domain Zalo
- */
-app.get('/zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html', (req, res) => {
-  res.sendFile(path.join(__dirname, 'zalo_verifierHlgC59djA1PJmPmMkhumINEOWdEVxbGbDJCn.html'));
-});
-
-/**
- * Webhook nhận sự kiện từ Zalo OA
- */
-app.post('/webhook', (req, res) => {
-  console.log('📩 Nhận sự kiện từ Zalo OA:', JSON.stringify(req.body, null, 2));
-  res.status(200).send('OK');
-});
-
-/**
- * Khởi động server
- */
 app.listen(port, () => {
-  console.log(`🚀 App chạy tại http://localhost:${port}`);
+  console.log(`Zalo webhook đang chạy tại http://localhost:${port}`);
 });
